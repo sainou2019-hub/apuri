@@ -385,27 +385,36 @@
     let personalBest = 0;
 
     // --- 認証処理 ---
+// import文に signInWithRedirect, getRedirectResult を追加してください
+    import { 
+      getAuth, 
+      GoogleAuthProvider, 
+      signInWithPopup,
+      signInWithRedirect,
+      getRedirectResult,
+      signOut, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+
+    // --- 認証処理 ---
+    // リダイレクトログインから戻ってきた時の結果受け取り
+    getRedirectResult(auth).catch((error) => {
+      console.error("Redirect login error:", error);
+    });
+
     loginBtn.addEventListener("click", async () => {
       try {
         await signInWithPopup(auth, provider);
       } catch (error) {
-        console.error("Login error:", error);
-        alert("ログインに失敗しました。Firebaseの「承認済みドメイン」にGitHub PagesのURLが追加されているか確認してください。\nエラー: " + error.message);
+        // ポップアップがブロックされた場合のみリダイレクト方式にフォールバック
+        if (error.code === "auth/popup-blocked" || error.code === "auth/cancelled-popup-request") {
+          await signInWithRedirect(auth, provider);
+        } else if (error.code !== "auth/popup-closed-by-user") {
+          console.error("Login error:", error);
+          alert("ログインエラー: " + error.message);
+        }
       }
     });
-
-    logoutBtn.addEventListener("click", () => signOut(auth));
-
-    onAuthStateChanged(auth, async (user) => {
-      currentUser = user;
-      if (user) {
-        loginBtn.classList.add("hidden");
-        logoutBtn.classList.remove("hidden");
-        userNameEl.textContent = user.displayName || "プレイヤー";
-        if (user.photoURL) {
-          userAvatarEl.src = user.photoURL;
-          userAvatarEl.style.display = "block";
-        }
         // 自己ベストの取得
         const userRef = doc(db, "leaderboard", user.uid);
         const snap = await getDoc(userRef);
