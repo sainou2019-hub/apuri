@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>NEON DODGE - オンラインランキング対応アクション</title>
+  <style>
+    :root {
+      --bg-color: #090a0f;
+      --panel-bg: rgba(20, 24, 38, 0.85);
+      --primary: #00f2fe;
+      --secondary: #4facfe;
+      --accent: #ff007f;
+      --gold: #ffd700;
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #gameCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      touch-action: none;
+    }
+
+    /* HUD (プレイ中のスコア表示) */
+    #hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      right: 20px;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+
+    .hud-box {
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      padding: 10px 18px;
+      border-radius: 12px;
+      backdrop-filter: blur(4px);
+    }
+
+    .score-label {
+      font-size: 12px;
+      color: var(--primary);
+      letter-spacing: 1px;
+    }
+
+    .score-value {
+      font-size: 28px;
+      font-weight: bold;
+      text-shadow: 0 0 10px var(--primary);
+    }
+
+    #comboDisplay {
+      font-size: 16px;
+      color: var(--gold);
+      font-weight: bold;
+      margin-top: 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    /* オーバーレイメニュー (スタート画面・ゲームオーバー画面) */
+    #overlay {
+      position: absolute;
+      z-index: 10;
+      width: 90%;
+      max-width: 440px;
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 28px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 40px rgba(0, 242, 254, 0.2);
+      transition: opacity 0.3s ease;
+    }
+
+    h1 {
+      font-size: 36px;
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 20px;
+    }
+
+    /* ユーザー情報エリア */
+    .auth-section {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 12px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-align: left;
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+      display: none;
+    }
+
+    .user-name {
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .user-best {
+      font-size: 12px;
+      color: var(--gold);
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      font-weight: bold;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.96);
+    }
+
+    .btn-google {
+      background: #ffffff;
+      color: #333;
+      padding: 8px 14px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-logout {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btn-play {
+      width: 100%;
+      padding: 16px;
+      font-size: 20px;
+      color: #000;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.5);
+      margin-bottom: 20px;
+    }
+
+    .btn-play:hover {
+      box-shadow: 0 0 30px rgba(0, 242, 254, 0.8);
+    }
+
+    /* ランキングボード */
+    .leaderboard {
+      text-align: left;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 12px;
+      padding: 14px;
+      max-height: 210px;
+      overflow-y: auto;
+    }
+
+    .leaderboard h3 {
+      font-size: 14px;
+      color: var(--primary);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .rank-list {
+      list-style: none;
+    }
+
+    .rank-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 13px;
+    }
+
+    .rank-item:last-child {
+      border-bottom: none;
+    }
+
+    .rank-num {
+      width: 24px;
+      font-weight: bold;
+      color: #888;
+    }
+
+    .rank-1 .rank-num { color: var(--gold); }
+    .rank-2 .rank-num { color: #c0c0c0; }
+    .rank-3 .rank-num { color: #cd7f32; }
+
+    .rank-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 10px;
+    }
+
+    .rank-score {
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #resultBanner {
+      margin-bottom: 16px;
+      padding: 10px;
+      background: rgba(255, 0, 127, 0.2);
+      border: 1px solid var(--accent);
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ゲーム画面 -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- プレイ中HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-box">
+      <div class="score-label">SCORE</div>
+      <div class="score-value" id="hudScore">0</div>
+      <div id="comboDisplay">COMBO x1</div>
+    </div>
+    <div class="hud-box" style="text-align: right;">
+      <div class="score-label">FEVER GAUGE</div>
+      <div class="score-value" id="hudFever" style="color: var(--accent);">0%</div>
+    </div>
+  </div>
+
+  <!-- メニュー / ランキングオーバーレイ -->
+  <div id="overlay">
+    <h1>NEON DODGE</h1>
+    <p class="subtitle">赤い敵を避け、光のスターを集めろ！</p>
+
+    <!-- ゲームオーバー時の結果表示 -->
+    <div id="resultBanner" class="hidden">
+      <div style="font-size: 13px; color: #ff80bf;">GAME OVER</div>
+      <div style="font-size: 26px; font-weight: bold;" id="finalScore">0</div>
+      <div style="font-size: 12px; color: var(--gold);" id="newRecordMsg" class="hidden">🎉 NEW RECORD! ランキング更新！</div>
+    </div>
+
+    <!-- Googleログインステータス -->
+    <div class="auth-section">
+      <div class="user-info">
+        <img id="userAvatar" class="user-avatar" src="" alt="avatar" />
+        <div>
+          <div class="user-name" id="userName">ゲストプレイヤー</div>
+          <div class="user-best" id="userBest">ログインするとランキング参加可能</div>
+        </div>
+      </div>
+      <button id="loginBtn" class="btn-google">Googleでログイン</button>
+      <button id="logoutBtn" class="btn-logout hidden">ログアウト</button>
+    </div>
+
+    <button id="startBtn" class="btn-play">PLAY START</button>
+
+    <!-- リアルタイムランキング -->
+    <div class="leaderboard">
+      <h3>
+        <span>🏆 WORLD TOP 10</span>
+        <span style="font-size: 11px; color: #888;">LIVE</span>
+      </h3>
+      <ul class="rank-list" id="rankList">
+        <li class="rank-item" style="justify-content: center; color: #888;">読み込み中...</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Firebase & ゲームロジック (ES Modules) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-app.js";
+    import { 
+      getAuth, 
+      GoogleAuthProvider, 
+      signInWithPopup, 
+      signOut, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-auth.js";
+    import { 
+      getFirestore, 
+      doc, 
+      getDoc, 
+      setDoc, 
+      collection, 
+      query, 
+      orderBy, 
+      limit, 
+      onSnapshot,
+      serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js";
+
+    // Firebase設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyDnlfnMpZZVxPHLR87unzwLH13Vovx6Qqk",
+      authDomain: "apuri-b4d56.firebaseapp.com",
+      projectId: "apuri-b4d56",
+      storageBucket: "apuri-b4d56.firebasestorage.app",
+      messagingSenderId: "366055633446",
+      appId: "1:366055633446:web:f686e28a3ce84acea3ece7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    // DOM要素
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const userNameEl = document.getElementById("userName");
+    const userBestEl = document.getElementById("userBest");
+    const userAvatarEl = document.getElementById("userAvatar");
+    const rankListEl = document.getElementById("rankList");
+    const startBtn = document.getElementById("startBtn");
+    const overlay = document.getElementById("overlay");
+    const hud = document.getElementById("hud");
+    const hudScore = document.getElementById("hudScore");
+    const hudFever = document.getElementById("hudFever");
+    const comboDisplay = document.getElementById("comboDisplay");
+    const resultBanner = document.getElementById("resultBanner");
+    const finalScoreEl = document.getElementById("finalScore");
+    const newRecordMsg = document.getElementById("newRecordMsg");
+
+    let currentUser = null;
+    let personalBest = 0;
+
+    // --- 認証処理 ---
+    loginBtn.addEventListener("click", async () => {
+      try {
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        console.error("Login error:", error);
+        alert("ログインに失敗しました。Firebaseの「承認済みドメイン」にGitHub PagesのURLが追加されているか確認してください。\nエラー: " + error.message);
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => signOut(auth));
+
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      if (user) {
+        loginBtn.classList.add("hidden");
+        logoutBtn.classList.remove("hidden");
+        userNameEl.textContent = user.displayName || "プレイヤー";
+        if (user.photoURL) {
+          userAvatarEl.src = user.photoURL;
+          userAvatarEl.style.display = "block";
+        }
+        // 自己ベストの取得
+        const userRef = doc(db, "leaderboard", user.uid);
+        const snap = await getDoc(userRef);
+        personalBest = snap.exists() ? snap.data().score : 0;
+        userBestEl.textContent = `自己ベスト: ${personalBest.toLocaleString()} pts`;
+      } else {
+        loginBtn.classList.remove("hidden");
+        logoutBtn.classList.add("hidden");
+        userAvatarEl.style.display = "none";
+        userNameEl.textContent = "ゲストプレイヤー";
+        userBestEl.textContent = "ログインするとランキング参加可能";
+        personalBest = 0;
+      }
+    });
+
+    // --- リアルタイムランキング監視 ---
+    const q = query(collection(db, "leaderboard"), orderBy("score", "desc"), limit(10));
+    onSnapshot(q, (snapshot) => {
+      rankListEl.innerHTML = "";
+      if (snapshot.empty) {
+        rankListEl.innerHTML = `<li class="rank-item" style="justify-content:center; color:#888;">まだ記録がありません。一番乗りを目指そう！</li>`;
+        return;
+      }
+      let rank = 1;
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const li = document.createElement("li");
+        li.className = `rank-item rank-${rank}`;
+        li.innerHTML = `
+          <span class="rank-num">#${rank}</span>
+          <span class="rank-name">${escapeHtml(data.name || "名無し")}</span>
+          <span class="rank-score">${Number(data.score).toLocaleString()}</span>
+        `;
+        rankListEl.appendChild(li);
+        rank++;
+      });
+    }, (error) => {
+      console.error("Firestore read error:", error);
+      rankListEl.innerHTML = `<li class="rank-item" style="color:#ff6b6b;">ランキング取得エラー（Firestoreルールを確認してください）</li>`;
+    });
+
+    async function saveScore(score) {
+      if (!currentUser) return false;
+      if (score <= personalBest) return false;
+
+      personalBest = score;
+      userBestEl.textContent = `自己ベスト: ${personalBest.toLocaleString()} pts`;
+
+      try {
+        await setDoc(doc(db, "leaderboard", currentUser.uid), {
+          name: currentUser.displayName || "プレイヤー",
+          score: score,
+          updatedAt: serverTimestamp()
+        });
+        return true;
+      } catch (e) {
+        console.error("Score save error:", e);
+        return false;
+      }
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    // --- ゲームエンジン (HTML5 Canvas) ---
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let width, height;
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    let isPlaying = false;
+    let score = 0;
+    let combo = 0;
+    let comboTimer = 0;
+    let feverGauge = 0;
+    let isFever = false;
+    let feverTimer = 0;
+    let frameCount = 0;
+
+    const player = { x: width / 2, y: height / 2, r: 14, targetX: width / 2, targetY: height / 2 };
+    let enemies = [];
+    let stars = [];
+    let particles = [];
+
+    // マウス・タッチ追従
+    function updateTarget(x, y) {
+      player.targetX = x;
+      player.targetY = y;
+    }
+    window.addEventListener("mousemove", (e) => updateTarget(e.clientX, e.clientY));
+    window.addEventListener("touchmove", (e) => {
+      if (e.touches.length > 0) updateTarget(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener("touchstart", (e) => {
+      if (e.touches.length > 0) updateTarget(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+
+    function spawnEnemy() {
+      const edge = Math.floor(Math.random() * 4);
+      let x, y;
+      if (edge === 0) { x = Math.random() * width; y = -20; }
+      else if (edge === 1) { x = width + 20; y = Math.random() * height; }
+      else if (edge === 2) { x = Math.random() * width; y = height + 20; }
+      else { x = -20; y = Math.random() * height; }
+
+      const angle = Math.atan2(player.y - y, player.x - x) + (Math.random() - 0.5) * 0.5;
+      const speed = 2.5 + Math.min(score / 2500, 5.5) + Math.random() * 1.5;
+      enemies.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        r: 10 + Math.random() * 8
+      });
+    }
+
+    function spawnStar() {
+      const margin = 50;
+      stars.push({
+        x: margin + Math.random() * (width - margin * 2),
+        y: margin + Math.random() * (height - margin * 2),
+        r: 10,
+        pulse: 0
+      });
+    }
+
+    function createParticles(x, y, color, count = 12) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 1 + Math.random() * 5;
+        particles.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1.0,
+          color
+        });
+      }
+    }
+
+    function startGame() {
+      isPlaying = true;
+      score = 0;
+      combo = 0;
+      comboTimer = 0;
+      feverGauge = 0;
+      isFever = false;
+      frameCount = 0;
+      enemies = [];
+      stars = [];
+      particles = [];
+      player.x = player.targetX = width / 2;
+      player.y = player.targetY = height / 2;
+
+      for (let i = 0; i < 3; i++) spawnStar();
+
+      overlay.classList.add("hidden");
+      hud.classList.remove("hidden");
+      newRecordMsg.classList.add("hidden");
+    }
+
+    async function gameOver() {
+      isPlaying = false;
+      createParticles(player.x, player.y, "#00f2fe", 35);
+      hud.classList.add("hidden");
+      overlay.classList.remove("hidden");
+      resultBanner.classList.remove("hidden");
+      finalScoreEl.textContent = `${score.toLocaleString()} pts`;
+      startBtn.textContent = "PLAY AGAIN";
+
+      const isNewRecord = await saveScore(score);
+      if (isNewRecord) {
+        newRecordMsg.classList.remove("hidden");
+      }
+    }
+
+    startBtn.addEventListener("click", startGame);
+
+    function loop() {
+      requestAnimationFrame(loop);
+
+      // 残像エフェクト付き背景クリア
+      ctx.fillStyle = "rgba(9, 10, 15, 0.25)";
+      ctx.fillRect(0, 0, width, height);
+
+      // パーティクル更新・描画
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.03;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
+
+      if (!isPlaying) return;
+
+      frameCount++;
+      score += 1;
+
+      // プレイヤー移動（滑らかに追従）
+      player.x += (player.targetX - player.x) * 0.18;
+      player.y += (player.targetY - player.y) * 0.18;
+
+      // コンボタイマー
+      if (combo > 0) {
+        comboTimer--;
+        if (comboTimer <= 0) {
+          combo = 0;
+          comboDisplay.style.opacity = 0;
+        }
+      }
+
+      // フィーバー管理
+      if (isFever) {
+        feverTimer--;
+        feverGauge = Math.max(0, Math.ceil((feverTimer / 300) * 100));
+        if (feverTimer <= 0) {
+          isFever = false;
+        }
+      }
+
+      // 敵スポーン頻度（スコアに応じて上昇）
+      const spawnRate = Math.max(12, 42 - Math.floor(score / 400));
+      if (frameCount % spawnRate === 0) spawnEnemy();
+      if (stars.length < 3) spawnStar();
+
+      // スター描画＆取得判定
+      for (let i = stars.length - 1; i >= 0; i--) {
+        const s = stars[i];
+        s.pulse += 0.1;
+        const radius = s.r + Math.sin(s.pulse) * 2.5;
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#ffd700";
+        ctx.fillStyle = "#ffd700";
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        const dist = Math.hypot(player.x - s.x, player.y - s.y);
+        if (dist < player.r + s.r + 6) {
+          stars.splice(i, 1);
+          combo++;
+          comboTimer = 180; // 3秒以内に次を取ればコンボ継続
+          const bonus = 100 * combo;
+          score += bonus;
+
+          comboDisplay.textContent = `COMBO x${combo} (+${bonus})`;
+          comboDisplay.style.opacity = 1;
+          createParticles(s.x, s.y, "#ffd700", 15);
+
+          if (!isFever) {
+            feverGauge = Math.min(100, feverGauge + 20);
+            if (feverGauge >= 100) {
+              isFever = true;
+              feverTimer = 300; // 5秒間無敵フィーバー
+              createParticles(player.x, player.y, "#ff007f", 30);
+            }
+          }
+        }
+      }
+
+      // 敵移動・描画・衝突判定
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        e.x += e.vx;
+        e.y += e.vy;
+
+        // 画面外削除
+        if (e.x < -60 || e.x > width + 60 || e.y < -60 || e.y > height + 60) {
+          enemies.splice(i, 1);
+          continue;
+        }
+
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = "#ff0055";
+        ctx.fillStyle = "#ff0055";
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        const dist = Math.hypot(player.x - e.x, player.y - e.y);
+        if (dist < player.r + e.r - 3) {
+          if (isFever) {
+            // フィーバー中は敵を破壊してボーナス
+            enemies.splice(i, 1);
+            score += 250;
+            createParticles(e.x, e.y, "#ff0055", 18);
+          } else {
+            gameOver();
+            return;
+          }
+        }
+      }
+
+      // プレイヤー描画
+      const playerColor = isFever ? "#ff007f" : "#00f2fe";
+      ctx.shadowBlur = isFever ? 25 : 18;
+      ctx.shadowColor = playerColor;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = playerColor;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r + (isFever ? 6 : 3), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // HUD更新
+      hudScore.textContent = score.toLocaleString();
+      hudFever.textContent = isFever ? "FEVER!!" : `${feverGauge}%`;
+      hudFever.style.color = isFever ? "#ffd700" : "#ff007f";
+    }
+
+    loop();
+  </script>
+</body>
+</html>
